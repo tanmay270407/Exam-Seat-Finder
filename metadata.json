@@ -1,0 +1,6 @@
+{
+  "name": "Exam Seat Finder",
+  "description": "University Examination Information Portal - Find your exam room and seat number instantly.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
