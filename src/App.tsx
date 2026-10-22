@@ -16,6 +16,7 @@ import {
   Clock,
   BookOpen
 } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 import { supabase } from './supabase';
 
 interface ExamRecord {
@@ -326,6 +327,7 @@ export default function App() {
       <footer className="w-full py-5 text-center text-xs text-slate-400 print:hidden">
         <p>Exam Seat Finder</p>
       </footer>
+      <Analytics />
     </div>
   );
 }
