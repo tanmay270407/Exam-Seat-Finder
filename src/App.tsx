@@ -129,7 +129,14 @@ function parseShiftTiming(
 
 // Sanitizes and formats shift display cleanly (removes Excel notes and fixes typos)
 function formatShiftDisplay(shift?: string, timing?: string): string {
-  const cleanShift = shift?.trim() || 'Shift 1';
+  const shiftNum = parseShiftNumber(shift);
+  let cleanShift = '';
+  if (shiftNum !== 999) {
+    cleanShift = `Shift ${shiftNum}`;
+  } else {
+    cleanShift = shift?.trim() || 'Shift 1';
+  }
+
   if (!timing) return cleanShift;
 
   let cleanTiming = timing.replace(/\s*\([^)]*excel[^)]*\)/gi, '').trim();
@@ -225,14 +232,129 @@ function parseShiftNumber(shiftStr: string | null | undefined): number {
   return 999;
 }
 
+/**
+ * Deduplicates exam records while preserving legitimate multiple exams
+ * across different dates, shifts, subjects, rooms, and seats for the same student.
+ * Seamlessly handles case-insensitive admission numbers (e.g. SCSE, SCAT, SMAS, GSOB),
+ * canonical shift representations (e.g. "Shift 2" vs "2"), date formats, and subject codes.
+ */
+function deduplicateExamRecords<T extends ExamRecord>(records: T[]): T[] {
+  if (!Array.isArray(records) || records.length <= 1) return records || [];
+
+  const seenIds = new Set<string>();
+  const seenExact = new Set<string>();
+  const seenSubjectExam = new Set<string>();
+  const seenSeatExam = new Set<string>();
+  const uniqueRecords: T[] = [];
+
+  const normalizeClean = (val: unknown): string => {
+    if (val == null) return '';
+    return String(val).trim().toLowerCase().replace(/\s+/g, ' ');
+  };
+
+  const canonicalAlphaNum = (val: unknown): string => {
+    if (val == null) return '';
+    return String(val).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  };
+
+  const getCanonicalDate = (val: unknown): string => {
+    if (!val) return '';
+    const parts = parseExamDateParts(String(val));
+    if (parts) {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`;
+    }
+    return normalizeClean(val);
+  };
+
+  const getCanonicalShift = (shiftVal: unknown, timingVal?: unknown): { shiftNum: number; key: string } => {
+    const shiftStr = shiftVal != null ? String(shiftVal) : '';
+    const num = parseShiftNumber(shiftStr);
+    if (num !== 999) {
+      return { shiftNum: num, key: `shift-${num}` };
+    }
+    // Attempt timing inference if shift label didn't have an explicit number
+    if (timingVal != null) {
+      const parsed = parseShiftTiming(String(timingVal), shiftStr);
+      if (parsed) {
+        for (const [sNumStr, defaultWindow] of Object.entries(DEFAULT_SHIFT_TIMINGS)) {
+          const sNum = Number(sNumStr);
+          if (
+            Math.abs(defaultWindow.start.hour * 60 + defaultWindow.start.minute - (parsed.start.hour * 60 + parsed.start.minute)) <= 15 &&
+            Math.abs(defaultWindow.end.hour * 60 + defaultWindow.end.minute - (parsed.end.hour * 60 + parsed.end.minute)) <= 15
+          ) {
+            return { shiftNum: sNum, key: `shift-${sNum}` };
+          }
+        }
+      }
+    }
+    return { shiftNum: 999, key: normalizeClean(shiftVal) || 'shift-unknown' };
+  };
+
+  for (const rawRecord of records) {
+    if (!rawRecord) continue;
+
+    // Standardize shift field if numeric (e.g. '2' -> 'Shift 2')
+    const shiftInfo = getCanonicalShift(rawRecord.shift, rawRecord.shift_timing);
+    const standardShift = shiftInfo.shiftNum !== 999 ? `Shift ${shiftInfo.shiftNum}` : (rawRecord.shift || '');
+    const record: T = {
+      ...rawRecord,
+      shift: standardShift || rawRecord.shift
+    };
+
+    const recordId = record.id != null && String(record.id).trim() !== '' ? String(record.id).trim() : null;
+    if (recordId && seenIds.has(recordId)) {
+      continue;
+    }
+
+    const cAdmission = canonicalAlphaNum(record.admission_number);
+    const cDate = getCanonicalDate(record.exam_date);
+    const cShiftKey = shiftInfo.key;
+    const cSubject = canonicalAlphaNum(record.subject_code);
+    const cRoom = canonicalAlphaNum(record.room_number);
+    const cSeat = canonicalAlphaNum(record.seat_number);
+
+    // 1. Exact canonical identity
+    const exactKey = `${cAdmission}|${cDate}|${cShiftKey}|${cSubject}|${cRoom}|${cSeat}`;
+    if (seenExact.has(exactKey)) {
+      continue;
+    }
+
+    // 2. Same course subject on the same date for the student
+    // A student cannot have multiple exams for the exact same subject course on the same day.
+    const subjectExamKey = cSubject ? `${cAdmission}|${cDate}|${cSubject}` : null;
+    if (subjectExamKey && seenSubjectExam.has(subjectExamKey)) {
+      continue;
+    }
+
+    // 3. Same seat allocation on the same date and shift
+    // A student cannot be assigned to the exact same room & seat twice in the same shift on the same day.
+    const seatExamKey = (cRoom && cSeat) ? `${cAdmission}|${cDate}|${cShiftKey}|${cRoom}|${cSeat}` : null;
+    if (seatExamKey && seenSeatExam.has(seatExamKey)) {
+      continue;
+    }
+
+    seenExact.add(exactKey);
+    if (recordId) seenIds.add(recordId);
+    if (subjectExamKey) seenSubjectExam.add(subjectExamKey);
+    if (seatExamKey) seenSeatExam.add(seatExamKey);
+
+    uniqueRecords.push(record);
+  }
+
+  return uniqueRecords;
+}
+
 // Comprehensive Sorting Algorithm in Asia/Kolkata (IST):
 // 1. Evaluates current real-time in Asia/Kolkata.
 // 2. An exam is UPCOMING if its end time has not passed yet: now <= endTime.
 //    Once its end time has passed: it is COMPLETED.
 // 3. All upcoming exams are placed at the TOP, ordered from earliest start time to latest.
 // 4. All completed exams are placed at the BOTTOM, with most recently completed first (descending end time).
-function sortExamsByDateTimeIST(records: ExamRecord[]): ExamRecord[] {
-  if (!records || records.length <= 1) return records;
+function sortExamsByDateTimeIST(rawRecords: ExamRecord[]): ExamRecord[] {
+  if (!rawRecords || rawRecords.length === 0) return [];
+  const records = deduplicateExamRecords(rawRecords);
+  if (records.length === 0) return [];
 
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -489,13 +611,15 @@ export default function App() {
         return;
       }
 
-      const matchingRecords: ExamRecord[] = data?.records || [];
-      if (matchingRecords.length === 0) {
+      const rawRecords: ExamRecord[] = Array.isArray(data?.records) ? data.records : [];
+      if (rawRecords.length === 0) {
         setError('No matching record found.');
         setRecords([]);
       } else {
+        // Deduplicate records to ensure each unique exam is rendered exactly once
+        const uniqueRecords = deduplicateExamRecords(rawRecords);
         // Sort in frontend using live IST date & shift timings
-        const sortedRecords = sortExamsByDateTimeIST(matchingRecords);
+        const sortedRecords = sortExamsByDateTimeIST(uniqueRecords);
         setRecords(sortedRecords);
       }
       setSearched(true);
@@ -674,9 +798,10 @@ export default function App() {
                 {/* Exam Cards - Dynamically Sorted by Date and Shift Timing in Asia/Kolkata (IST) */}
                 {records.map((rec, index) => {
                   const isFirstCompleted = !rec.is_upcoming && (index === 0 || records[index - 1]?.is_upcoming);
+                  const cardKey = `exam-card-${rec.id ?? 'row'}-${rec.admission_number}-${rec.exam_date}-${rec.shift ?? 's'}-${rec.subject_code ?? 'subj'}-${index}`;
 
                   return (
-                    <React.Fragment key={rec.id || index}>
+                    <React.Fragment key={cardKey}>
                       {isFirstCompleted && index > 0 && (
                         <div className="pt-3 pb-1 flex items-center gap-3">
                           <div className="h-px bg-slate-300/80 flex-1" />
