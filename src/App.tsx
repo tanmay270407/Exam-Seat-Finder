@@ -362,7 +362,6 @@ function sortExamsByDateTimeIST(records: ExamRecord[]): ExamRecord[] {
 }
 
 export default function App() {
-  const [studentName, setStudentName] = useState('');
   const [admissionNumber, setAdmissionNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -457,11 +456,10 @@ export default function App() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    const normalizedName = studentName.trim().replace(/\s+/g, ' ');
     const normalizedAdmission = admissionNumber.trim();
 
-    if (!normalizedName || !normalizedAdmission) {
-      setError('Please enter both details.');
+    if (!normalizedAdmission) {
+      setError('Please enter your admission number.');
       return;
     }
 
@@ -473,7 +471,6 @@ export default function App() {
       const { data, error: functionError } = await supabase.functions.invoke('find-exam-seat', {
         body: {
           admission_number: normalizedAdmission,
-          student_name: normalizedName,
         },
       });
 
@@ -486,7 +483,7 @@ export default function App() {
       }
 
       if (data?.error) {
-        setError('Unable to search right now. Please try again.');
+        setError(data.error === 'Admission number is required.' ? 'Please enter your admission number.' : 'Unable to search right now. Please try again.');
         setRecords([]);
         setSearched(true);
         return;
@@ -513,7 +510,6 @@ export default function App() {
   };
 
   const handleReset = () => {
-    setStudentName('');
     setAdmissionNumber('');
     setRecords(null);
     setSearched(false);
@@ -578,31 +574,22 @@ export default function App() {
                   </div>
                 )}
 
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={studentName}
-                    onChange={(e) => setStudentName(e.target.value)}
-                    placeholder="Enter your full name"
-                    className="w-full px-4 py-3.5 rounded-2xl bg-[#eef2f7] text-slate-800 placeholder-slate-400 text-sm font-medium shadow-[inset_3px_3px_6px_#cbd5e1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                <div className="space-y-2">
+                  <label htmlFor="admission-number-input" className="block text-xs font-bold uppercase tracking-wider text-slate-600">
                     Admission Number
                   </label>
                   <input
+                    id="admission-number-input"
                     type="text"
                     required
+                    autoFocus
                     value={admissionNumber}
-                    onChange={(e) => setAdmissionNumber(e.target.value)}
+                    onChange={(e) => {
+                      setAdmissionNumber(e.target.value);
+                      if (error) setError(null);
+                    }}
                     placeholder="Enter your admission number"
-                    className="w-full px-4 py-3.5 rounded-2xl bg-[#eef2f7] text-slate-800 placeholder-slate-400 text-sm font-medium shadow-[inset_3px_3px_6px_#cbd5e1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-mono"
+                    className="w-full px-4 py-3.5 sm:py-4 rounded-2xl bg-[#eef2f7] text-slate-800 placeholder-slate-400 text-sm sm:text-base font-semibold shadow-[inset_3px_3px_6px_#cbd5e1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-mono tracking-wide"
                   />
                 </div>
 
@@ -677,7 +664,7 @@ export default function App() {
                 <div className="bg-[#eef2f7] rounded-2xl p-5 shadow-[6px_6px_14px_#cbd5e1,-6px_-6px_14px_#ffffff] border border-white/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400 block">Student</span>
-                    <span className="text-base font-bold text-slate-800">{records[0].student_name}</span>
+                    <span className="text-base font-bold text-slate-800">{records[0].student_name || 'Student'}</span>
                   </div>
                   <div className="text-xs font-mono font-bold bg-[#eef2f7] px-3 py-1.5 rounded-xl shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff] text-indigo-600 w-fit">
                     {records[0].admission_number}

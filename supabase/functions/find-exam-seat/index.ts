@@ -333,13 +333,16 @@ Deno.serve(async (req: Request) => {
     const rawAdmission = body?.admission_number;
     const rawName = body?.student_name;
 
-    const normalizedAdmission = normalizeWhitespace(rawAdmission);
-    const normalizedName = normalizeWhitespace(rawName);
+    // Accidental leading and trailing spaces trimmed; string preserved including leading zeros
+    const normalizedAdmission = typeof rawAdmission === 'string'
+      ? rawAdmission.trim()
+      : (rawAdmission != null ? String(rawAdmission).trim() : '');
+    const normalizedName = typeof rawName === 'string' ? normalizeWhitespace(rawName) : '';
 
-    if (!normalizedAdmission || !normalizedName) {
+    if (!normalizedAdmission) {
       return new Response(
         JSON.stringify({
-          error: 'Both admission number and student name are required.',
+          error: 'Admission number is required.',
         }),
         {
           status: 400,
@@ -398,7 +401,7 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           records: [],
-          message: "We couldn't find a matching record. Please check your name and admission number.",
+          message: "No matching record found. Please check your admission number.",
         }),
         {
           status: 200,
@@ -407,24 +410,28 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Filter matching records by:
-    // 1. Exact case-insensitive match on normalized admission number
-    // 2. Case-insensitive and whitespace-normalized match on student name
+    // Filter matching records by exact case-insensitive match on normalized admission number.
+    // If student_name was optionally supplied (backward compatibility), check it too.
     const lowerAdmission = normalizedAdmission.toLowerCase();
 
     const matchingRecords = data.filter((record: any) => {
-      const recordAdmission = normalizeWhitespace(record?.admission_number).toLowerCase();
+      const recordAdmission = (typeof record?.admission_number === 'string'
+        ? record.admission_number
+        : String(record?.admission_number || '')).trim().toLowerCase();
       const admissionMatches = recordAdmission === lowerAdmission;
-      const nameMatches = isNameMatch(normalizedName, record?.student_name || '');
 
-      return admissionMatches && nameMatches;
+      if (normalizedName) {
+        return admissionMatches && isNameMatch(normalizedName, record?.student_name || '');
+      }
+
+      return admissionMatches;
     });
 
     if (matchingRecords.length === 0) {
       return new Response(
         JSON.stringify({
           records: [],
-          message: "We couldn't find a matching record. Please check your name and admission number.",
+          message: "No matching record found. Please check your admission number.",
         }),
         {
           status: 200,
