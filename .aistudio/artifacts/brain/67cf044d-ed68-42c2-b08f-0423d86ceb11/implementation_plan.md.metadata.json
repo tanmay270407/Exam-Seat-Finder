@@ -1,0 +1,6 @@
+{
+  "summary":  "Comprehensive implementation plan for the Exam Seat Finder three-case sorting architecture: placing upcoming exams at the top (ordered chronologically by start time in Asia/Kolkata IST), completed exams at the bottom (ordered by most recent completion), and handling multiple exam schedules with resilient shift time evaluation.",
+  "updatedAt":  "2026-10-23T09:33:55.566037554Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
