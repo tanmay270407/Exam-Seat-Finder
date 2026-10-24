@@ -7,7 +7,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   GraduationCap,
   Search,
-  Printer,
   ArrowLeft,
   AlertCircle,
   Building2,
@@ -798,22 +797,6 @@ export default function App() {
     setIsPastExamsExpanded(false);
   };
 
-  const handlePrint = () => {
-    try {
-      window.focus();
-      window.print();
-    } catch (err) {
-      console.warn('Direct print failed, attempting parent window print:', err);
-      try {
-        if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
-          window.parent.focus();
-          window.parent.print();
-        }
-      } catch (parentErr) {
-        console.error('Print could not be opened:', parentErr);
-      }
-    }
-  };
 
   const renderExamCard = (rec: ExamRecord, index: number, isUpcoming: boolean) => {
     const cardKey = `exam-card-${rec.id ?? 'row'}-${rec.admission_number}-${rec.exam_date}-${rec.shift ?? 's'}-${rec.subject_code ?? 'subj'}-${index}`;
@@ -847,7 +830,7 @@ export default function App() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           {/* Room Number */}
           <div className="bg-[#eef2f7] rounded-2xl p-5 sm:p-6 shadow-[inset_3px_3px_6px_#cbd5e1,inset_-3px_-3px_6px_#ffffff] text-center space-y-1">
-            <div className="flex items-center justify-center gap-1.5 text-indigo-600">
+            <div className="flex items-center justify-center gap-1.5 text-teal-600">
               <Building2 className="w-4 h-4" />
               <span className="text-xs font-bold uppercase tracking-wider">Room</span>
             </div>
@@ -872,7 +855,7 @@ export default function App() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
           {rec.subject_code && (
             <div className="flex items-center gap-2 p-3 rounded-xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff]">
-              <BookOpen className="w-4 h-4 text-indigo-600 shrink-0" />
+              <BookOpen className="w-4 h-4 text-teal-600 shrink-0" />
               <div className="truncate">
                 <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Course Code</span>
                 <span className="font-semibold text-slate-800 truncate block">{rec.subject_code}</span>
@@ -881,7 +864,7 @@ export default function App() {
           )}
 
           <div className="flex items-center gap-2 p-3 rounded-xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff]">
-            <Calendar className="w-4 h-4 text-indigo-600 shrink-0" />
+            <Calendar className="w-4 h-4 text-teal-600 shrink-0" />
             <div>
               <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Date</span>
               <span className="font-semibold text-slate-800 block">{rec.exam_date || 'TBA'}</span>
@@ -901,6 +884,12 @@ export default function App() {
       </div>
     );
   };
+
+  const studentProgram = records?.find((r) => r.program?.trim())?.program?.trim();
+  const studentSemester = records?.find((r) => r.semester?.trim())?.semester?.trim();
+  const programSemesterText = studentProgram && studentSemester
+    ? `${studentProgram} - ${studentSemester}`
+    : studentProgram || studentSemester || null;
 
   return (
     <div className="min-h-screen bg-[#eef2f7] text-slate-700 flex flex-col justify-between font-['Plus_Jakarta_Sans',sans-serif] selection:bg-indigo-600 selection:text-white">
@@ -1043,8 +1032,8 @@ export default function App() {
         ) : (
           /* 2. Results Page */
           <div className="space-y-6 animate-fade-in">
-            {/* Actions: Only Print & Search Again */}
-            <div className="flex items-center justify-between print:hidden">
+            {/* Actions: Search Again & Student Program/Semester */}
+            <div className="flex items-center justify-between gap-3">
               <button
                 onClick={handleReset}
                 className="px-4 py-2.5 rounded-2xl bg-[#eef2f7] shadow-[5px_5px_10px_#cbd5e1,-5px_-5px_10px_#ffffff] hover:shadow-[2px_2px_5px_#cbd5e1,-2px_-2px_5px_#ffffff] text-slate-700 font-semibold text-xs flex items-center gap-2 transition-all cursor-pointer"
@@ -1053,17 +1042,13 @@ export default function App() {
                 <span>Search Again</span>
               </button>
 
-              {records && records.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  title="Print exam schedule & seating details"
-                  aria-label="Print exam seating details"
-                  className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold text-xs shadow-[5px_5px_10px_#cbd5e1,-5px_-5px_10px_#ffffff] hover:shadow-[3px_3px_8px_#cbd5e1,-3px_-3px_8px_#ffffff] active:shadow-[inset_2px_2px_4px_rgba(0,0,0,0.25)] active:scale-95 transition-all duration-150 flex items-center gap-2 cursor-pointer select-none"
+              {programSemesterText && (
+                <div
+                  className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff] border border-white/80 text-xs font-bold tracking-tight select-none truncate max-w-[60%] sm:max-w-none text-right"
+                  title={programSemesterText}
                 >
-                  <Printer className="w-4 h-4" />
-                  <span>Print</span>
-                </button>
+                  <span className="text-indigo-600 font-bold">{programSemesterText}</span>
+                </div>
               )}
             </div>
 
