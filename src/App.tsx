@@ -21,7 +21,9 @@ import {
   Star,
   X,
   CheckCircle2,
-  Loader2
+  Loader2,
+  ShieldAlert,
+  ChevronDown
 } from 'lucide-react';
 import { Analytics } from '@vercel/analytics/react';
 import { supabase } from './supabase';
@@ -489,6 +491,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [records, setRecords] = useState<ExamRecord[] | null>(null);
   const [searched, setSearched] = useState(false);
+  const [isPastExamsExpanded, setIsPastExamsExpanded] = useState(false);
 
   // Feedback System State
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -501,16 +504,23 @@ export default function App() {
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
 
-  // Close feedback modal on Escape key if not submitting
+  // Disclaimer Modal State
+  const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
+
+  // Close modals on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFeedbackOpen && !submittingFeedback) {
-        setIsFeedbackOpen(false);
+      if (e.key === 'Escape') {
+        if (isDisclaimerOpen) {
+          setIsDisclaimerOpen(false);
+        } else if (isFeedbackOpen && !submittingFeedback) {
+          setIsFeedbackOpen(false);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFeedbackOpen, submittingFeedback]);
+  }, [isFeedbackOpen, isDisclaimerOpen, submittingFeedback]);
 
   const handleOpenFeedback = () => {
     setIsFeedbackOpen(true);
@@ -588,6 +598,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     setRecords(null);
+    setIsPastExamsExpanded(false);
 
     try {
       const { data, error: functionError } = await supabase.functions.invoke('find-exam-seat', {
@@ -638,10 +649,111 @@ export default function App() {
     setRecords(null);
     setSearched(false);
     setError(null);
+    setIsPastExamsExpanded(false);
   };
 
   const handlePrint = () => {
-    window.print();
+    try {
+      window.focus();
+      window.print();
+    } catch (err) {
+      console.warn('Direct print failed, attempting parent window print:', err);
+      try {
+        if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+          window.parent.focus();
+          window.parent.print();
+        }
+      } catch (parentErr) {
+        console.error('Print could not be opened:', parentErr);
+      }
+    }
+  };
+
+  const renderExamCard = (rec: ExamRecord, index: number, isUpcoming: boolean) => {
+    const cardKey = `exam-card-${rec.id ?? 'row'}-${rec.admission_number}-${rec.exam_date}-${rec.shift ?? 's'}-${rec.subject_code ?? 'subj'}-${index}`;
+
+    return (
+      <div
+        key={cardKey}
+        className="bg-[#eef2f7] rounded-3xl p-6 sm:p-8 shadow-[10px_10px_24px_#cbd5e1,-10px_-10px_24px_#ffffff] border border-white/60 space-y-5 print:shadow-none print:border print:border-slate-300 print:mb-6"
+      >
+        {/* Status Line */}
+        <div className="flex items-center justify-between text-xs pb-1 border-b border-slate-200/50">
+          <span
+            className={`font-bold tracking-wide uppercase text-[11px] ${
+              isUpcoming ? 'text-indigo-600' : 'text-slate-400'
+            }`}
+          >
+            {isUpcoming
+              ? index === 0
+                ? 'Next Upcoming Exam'
+                : 'Upcoming Exam'
+              : 'Completed Exam'}
+          </span>
+          {rec.exam_date && (
+            <span className="text-slate-400 text-[11px] font-medium">
+              {rec.exam_date}
+            </span>
+          )}
+        </div>
+
+        {/* Room and Seat - Large & Prominent */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+          {/* Room Number */}
+          <div className="bg-[#eef2f7] rounded-2xl p-5 sm:p-6 shadow-[inset_3px_3px_6px_#cbd5e1,inset_-3px_-3px_6px_#ffffff] text-center space-y-1">
+            <div className="flex items-center justify-center gap-1.5 text-indigo-600">
+              <Building2 className="w-4 h-4" />
+              <span className="text-xs font-bold uppercase tracking-wider">Room</span>
+            </div>
+            <div className="text-4xl sm:text-5xl font-extrabold font-mono text-slate-800 tracking-tight">
+              {rec.room_number || 'TBA'}
+            </div>
+          </div>
+
+          {/* Seat Number */}
+          <div className="bg-[#eef2f7] rounded-2xl p-5 sm:p-6 shadow-[inset_3px_3px_6px_#cbd5e1,inset_-3px_-3px_6px_#ffffff] text-center space-y-1">
+            <div className="flex items-center justify-center gap-1.5 text-teal-600">
+              <Layers className="w-4 h-4" />
+              <span className="text-xs font-bold uppercase tracking-wider">Seat</span>
+            </div>
+            <div className="text-4xl sm:text-5xl font-extrabold font-mono text-slate-800 tracking-tight">
+              {rec.seat_number || 'TBA'}
+            </div>
+          </div>
+        </div>
+
+        {/* Essential Exam Details: Course Code, Date, Shift & Timing */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+          {rec.subject_code && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff]">
+              <BookOpen className="w-4 h-4 text-indigo-600 shrink-0" />
+              <div className="truncate">
+                <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Course Code</span>
+                <span className="font-semibold text-slate-800 truncate block">{rec.subject_code}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff]">
+            <Calendar className="w-4 h-4 text-indigo-600 shrink-0" />
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Date</span>
+              <span className="font-semibold text-slate-800 block">{rec.exam_date || 'TBA'}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff]">
+            <Clock className="w-4 h-4 text-teal-600 shrink-0" />
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Shift</span>
+              <span className="font-semibold text-slate-800 block">
+                {formatShiftDisplay(rec.shift, rec.shift_timing)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -655,7 +767,6 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-base font-bold text-slate-800 leading-tight">Exam Seat Finder</h1>
-              <p className="text-xs text-slate-500">Find your exam room &amp; seat.</p>
             </div>
           </div>
 
@@ -738,6 +849,13 @@ export default function App() {
                 </div>
               </form>
             </div>
+
+            {/* Verification Notice */}
+            <div className="text-center px-3 max-w-lg mx-auto">
+              <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                Please verify your examination details against the latest official university notification. Official university instructions prevail in case of discrepancies.
+              </p>
+            </div>
           </div>
         ) : (
           /* 2. Results Page */
@@ -754,8 +872,11 @@ export default function App() {
 
               {records && records.length > 0 && (
                 <button
+                  type="button"
                   onClick={handlePrint}
-                  className="px-4 py-2.5 rounded-2xl bg-indigo-600 text-white font-semibold text-xs shadow-[5px_5px_10px_#cbd5e1,-5px_-5px_10px_#ffffff] hover:bg-indigo-700 transition-all flex items-center gap-2 cursor-pointer"
+                  title="Print exam schedule & seating details"
+                  aria-label="Print exam seating details"
+                  className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold text-xs shadow-[5px_5px_10px_#cbd5e1,-5px_-5px_10px_#ffffff] hover:shadow-[3px_3px_8px_#cbd5e1,-3px_-3px_8px_#ffffff] active:shadow-[inset_2px_2px_4px_rgba(0,0,0,0.25)] active:scale-95 transition-all duration-150 flex items-center gap-2 cursor-pointer select-none"
                 >
                   <Printer className="w-4 h-4" />
                   <span>Print</span>
@@ -795,103 +916,82 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Exam Cards - Dynamically Sorted by Date and Shift Timing in Asia/Kolkata (IST) */}
-                {records.map((rec, index) => {
-                  const isFirstCompleted = !rec.is_upcoming && (index === 0 || records[index - 1]?.is_upcoming);
-                  const cardKey = `exam-card-${rec.id ?? 'row'}-${rec.admission_number}-${rec.exam_date}-${rec.shift ?? 's'}-${rec.subject_code ?? 'subj'}-${index}`;
+                {/* Exam Cards - Dynamically Sorted with Collapsible Past Exams */}
+                {(() => {
+                  const upcomingExams = records.filter((r) => r.is_upcoming);
+                  const pastExams = records.filter((r) => !r.is_upcoming);
 
                   return (
-                    <React.Fragment key={cardKey}>
-                      {isFirstCompleted && index > 0 && (
-                        <div className="pt-3 pb-1 flex items-center gap-3">
-                          <div className="h-px bg-slate-300/80 flex-1" />
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                            Past Exams
-                          </span>
-                          <div className="h-px bg-slate-300/80 flex-1" />
+                    <>
+                      {/* Upcoming Exams (Full visibility or Empty State) */}
+                      {upcomingExams.length > 0 ? (
+                        upcomingExams.map((rec, index) => renderExamCard(rec, index, true))
+                      ) : (
+                        <div className="bg-[#eef2f7] rounded-3xl p-6 sm:p-8 shadow-[10px_10px_24px_#cbd5e1,-10px_-10px_24px_#ffffff] border border-white/60 text-center py-8 sm:py-10 space-y-3 print:shadow-none print:border print:border-slate-300 print:mb-6">
+                          <div className="w-12 h-12 rounded-2xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff] flex items-center justify-center text-indigo-600 mx-auto">
+                            <Calendar className="w-6 h-6 text-indigo-600" />
+                          </div>
+                          <div className="space-y-1.5 max-w-md mx-auto">
+                            <h3 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">
+                              No Upcoming Exams Right Now
+                            </h3>
+                            <p className="text-xs sm:text-sm text-slate-500 font-normal leading-relaxed">
+                              Your upcoming examination details will appear here once the university updates the schedule.
+                            </p>
+                          </div>
                         </div>
                       )}
 
-                      <div className="bg-[#eef2f7] rounded-3xl p-6 sm:p-8 shadow-[10px_10px_24px_#cbd5e1,-10px_-10px_24px_#ffffff] border border-white/60 space-y-5 print:shadow-none print:border print:border-slate-300 print:mb-6">
-                        {/* Status Line */}
-                        <div className="flex items-center justify-between text-xs pb-1 border-b border-slate-200/50">
-                          <span
-                            className={`font-bold tracking-wide uppercase text-[11px] ${
-                              rec.is_upcoming ? 'text-indigo-600' : 'text-slate-400'
+                      {/* Past Exams Section */}
+                      {pastExams.length > 0 && (
+                        <div>
+                          {/* Centered Clickable Heading between two dividers */}
+                          <button
+                            type="button"
+                            id="past-exams-toggle"
+                            aria-expanded={isPastExamsExpanded}
+                            aria-controls="past-exams-container"
+                            aria-label={isPastExamsExpanded ? 'Collapse past exams' : 'Expand past exams'}
+                            onClick={() => setIsPastExamsExpanded((prev) => !prev)}
+                            className="w-full pt-3 pb-1 flex items-center gap-3 group cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded-xl transition-all"
+                          >
+                            <div className="h-px bg-slate-300/80 flex-1 group-hover:bg-slate-400/80 transition-colors" />
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[11px] font-bold uppercase tracking-wide text-indigo-600 group-hover:text-indigo-700 transition-colors">
+                                Past Exams
+                              </span>
+                              <ChevronDown
+                                className={`w-3.5 h-3.5 text-indigo-600 group-hover:text-indigo-700 transition-transform duration-300 ease-in-out print:hidden ${
+                                  isPastExamsExpanded ? 'rotate-180' : ''
+                                }`}
+                                aria-hidden="true"
+                              />
+                            </div>
+                            <div className="h-px bg-slate-300/80 flex-1 group-hover:bg-slate-400/80 transition-colors" />
+                          </button>
+
+                          {/* Collapsible Past Exam Cards (Clean, unclipped neomorphic shadows) */}
+                          <div
+                            id="past-exams-container"
+                            role="region"
+                            aria-labelledby="past-exams-toggle"
+                            className={`transition-all duration-300 ease-in-out print:!block print:!opacity-100 print:!max-h-none print:!mt-5 ${
+                              isPastExamsExpanded
+                                ? 'opacity-100 max-h-[5000px] mt-5 overflow-visible'
+                                : 'opacity-0 max-h-0 overflow-hidden pointer-events-none mt-0'
                             }`}
                           >
-                            {rec.is_upcoming
-                              ? index === 0
-                                ? 'Next Upcoming Exam'
-                                : 'Upcoming Exam'
-                              : 'Completed Exam'}
-                          </span>
-                          {rec.exam_date && (
-                            <span className="text-slate-400 text-[11px] font-medium">
-                              {rec.exam_date}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Room and Seat - Large & Prominent */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                          {/* Room Number */}
-                          <div className="bg-[#eef2f7] rounded-2xl p-5 sm:p-6 shadow-[inset_3px_3px_6px_#cbd5e1,inset_-3px_-3px_6px_#ffffff] text-center space-y-1">
-                            <div className="flex items-center justify-center gap-1.5 text-indigo-600">
-                              <Building2 className="w-4 h-4" />
-                              <span className="text-xs font-bold uppercase tracking-wider">Room</span>
-                            </div>
-                            <div className="text-4xl sm:text-5xl font-extrabold font-mono text-slate-800 tracking-tight">
-                              {rec.room_number || 'TBA'}
-                            </div>
-                          </div>
-
-                          {/* Seat Number */}
-                          <div className="bg-[#eef2f7] rounded-2xl p-5 sm:p-6 shadow-[inset_3px_3px_6px_#cbd5e1,inset_-3px_-3px_6px_#ffffff] text-center space-y-1">
-                            <div className="flex items-center justify-center gap-1.5 text-teal-600">
-                              <Layers className="w-4 h-4" />
-                              <span className="text-xs font-bold uppercase tracking-wider">Seat</span>
-                            </div>
-                            <div className="text-4xl sm:text-5xl font-extrabold font-mono text-slate-800 tracking-tight">
-                              {rec.seat_number || 'TBA'}
+                            <div className="space-y-5">
+                              {pastExams.map((rec, pIndex) =>
+                                renderExamCard(rec, upcomingExams.length + pIndex, false)
+                              )}
                             </div>
                           </div>
                         </div>
-
-                        {/* Essential Exam Details: Subject, Date, Shift & Timing */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
-                          {rec.subject_code && (
-                            <div className="flex items-center gap-2 p-3 rounded-xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff]">
-                              <BookOpen className="w-4 h-4 text-indigo-600 shrink-0" />
-                              <div className="truncate">
-                                <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Subject</span>
-                                <span className="font-semibold text-slate-800 truncate block">{rec.subject_code}</span>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex items-center gap-2 p-3 rounded-xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff]">
-                            <Calendar className="w-4 h-4 text-indigo-600 shrink-0" />
-                            <div>
-                              <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Date</span>
-                              <span className="font-semibold text-slate-800 block">{rec.exam_date || 'TBA'}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 p-3 rounded-xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff]">
-                            <Clock className="w-4 h-4 text-teal-600 shrink-0" />
-                            <div>
-                              <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Shift</span>
-                              <span className="font-semibold text-slate-800 block">
-                                {formatShiftDisplay(rec.shift, rec.shift_timing)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </React.Fragment>
+                      )}
+                    </>
                   );
-                })}
+                })()}
               </div>
             )}
           </div>
@@ -942,9 +1042,84 @@ export default function App() {
               </div>
             </div>
           </div>
+
+          {/* Subtle Centered Footer */}
+          <div className="mt-3.5 text-center text-xs text-slate-400 font-medium flex items-center justify-center gap-2 select-none">
+            <span>© 2026 Exam Seat Finder</span>
+            <span className="text-slate-300" aria-hidden="true">•</span>
+            <button
+              type="button"
+              onClick={() => setIsDisclaimerOpen(true)}
+              className="text-slate-500 hover:text-indigo-600 underline underline-offset-4 decoration-slate-300 hover:decoration-indigo-500 transition-colors cursor-pointer"
+            >
+              Disclaimer
+            </button>
+          </div>
         </div>
       </footer>
       <Analytics />
+
+      {/* Neumorphic Disclaimer Modal */}
+      {isDisclaimerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-sm overflow-y-auto animate-fade-in print:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="disclaimer-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsDisclaimerOpen(false);
+            }
+          }}
+        >
+          <div className="relative w-full max-w-lg bg-[#eef2f7] rounded-3xl shadow-[20px_20px_60px_#cbd5e1,-20px_-20px_60px_#ffffff] border border-white/90 p-6 sm:p-8 my-auto transition-all animate-scale-up">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-200/70">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#eef2f7] shadow-[4px_4px_8px_#cbd5e1,-4px_-4px_8px_#ffffff] flex items-center justify-center text-indigo-600 shrink-0">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 id="disclaimer-modal-title" className="text-lg sm:text-xl font-bold text-slate-800 tracking-tight">
+                    Disclaimer
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Important notice for students
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDisclaimerOpen(false)}
+                aria-label="Close disclaimer dialog"
+                className="w-9 h-9 rounded-xl bg-[#eef2f7] shadow-[3px_3px_6px_#cbd5e1,-3px_-3px_6px_#ffffff] hover:shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_3px_3px_6px_#cbd5e1,inset_-3px_-3px_6px_#ffffff] flex items-center justify-center text-slate-500 hover:text-slate-800 transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="pt-5 space-y-5">
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#eef2f7] shadow-[inset_2px_2px_5px_#cbd5e1,inset_-2px_-2px_5px_#ffffff] border border-white/70">
+                <p className="text-xs sm:text-sm text-slate-600 font-normal leading-relaxed text-justify">
+                  Exam Seat Finder is provided as an informational service for students’ convenience. While reasonable efforts are made to ensure the accuracy of the information displayed, the developer shall not be held responsible for errors, omissions, or discrepancies in the seating information or for consequences arising from reliance on such information, to the extent permitted by applicable law. Students are advised to verify all examination details through official university notifications before their examination.
+                </p>
+              </div>
+
+              {/* Action Button */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsDisclaimerOpen(false)}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-3.5 px-6 rounded-2xl shadow-[5px_5px_12px_#cbd5e1,-5px_-5px_12px_#ffffff] hover:shadow-[3px_3px_8px_#cbd5e1,-3px_-3px_8px_#ffffff] active:shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2)] transition-all duration-200 text-sm cursor-pointer"
+                >
+                  I Understand
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Neumorphic Feedback Modal */}
       {isFeedbackOpen && (
