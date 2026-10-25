@@ -15,7 +15,7 @@ import {
   Clock,
   BookOpen,
   Linkedin,
-  ExternalLink,
+  Users,
   MessageSquarePlus,
   Star,
   X,
@@ -1169,59 +1169,98 @@ export default function App() {
       {/* Footer */}
       <footer className="w-full px-4 pb-6 pt-3 print:hidden">
         <div className="max-w-2xl mx-auto">
-          <div className="group/footer relative overflow-hidden rounded-2xl sm:rounded-3xl bg-white/70 backdrop-blur-md border border-white/90 shadow-[0_8px_30px_rgba(99,102,241,0.08),0_2px_8px_rgba(15,23,42,0.04)] px-5 py-4 sm:px-6 sm:py-4 transition-all duration-300 hover:shadow-[0_12px_36px_rgba(99,102,241,0.12),0_4px_12px_rgba(15,23,42,0.06)] hover:border-indigo-100/80">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-              {/* Developer Profile Info */}
-              <div className="flex flex-col sm:flex-row items-center gap-3.5">
-                {/* Circular Profile Avatar with Subtle Purple-Blue Gradient Ring */}
-                <div className="relative shrink-0 p-[2.5px] rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-blue-500 shadow-sm transition-transform duration-300 group-hover/footer:scale-105">
-                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 flex items-center justify-center text-white font-bold text-sm tracking-wider shadow-inner select-none">
+          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-[#eef2f7] shadow-[8px_8px_20px_#cbd5e1,-8px_-8px_20px_#ffffff] border border-white/80 p-5 sm:p-6 transition-all duration-300">
+            {/* Top row: Heading with horizontal divider lines */}
+            <div className="flex items-center gap-3 w-full justify-center pb-4">
+              <div className="h-px bg-slate-300/80 flex-1 max-w-[60px] sm:max-w-[120px]" />
+              <span className="text-[10px] sm:text-[11px] font-bold text-indigo-600 uppercase tracking-widest select-none">
+                DEVELOPED BY
+              </span>
+              <div className="h-px bg-slate-300/80 flex-1 max-w-[60px] sm:max-w-[120px]" />
+            </div>
+
+            {/* Middle row: Two Developer Profiles */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 pb-4">
+              {/* Tanmay Kumar */}
+              <a
+                href="https://www.linkedin.com/in/tanmay-kumar-219a322a9/"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="View Tanmay Kumar's LinkedIn profile"
+                aria-label="Tanmay Kumar LinkedIn profile"
+                className="group flex items-center gap-2.5 py-2 px-3.5 rounded-2xl bg-[#eef2f7] shadow-[3px_3px_8px_#cbd5e1,-3px_-3px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff] border border-white/70 transition-all duration-200 cursor-pointer w-full sm:w-auto justify-center"
+              >
+                <div className="relative shrink-0 p-[2px] rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-blue-500 shadow-sm transition-transform duration-200 group-hover:scale-105">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 flex items-center justify-center text-white font-bold text-xs tracking-wider shadow-inner select-none">
                     TK
                   </div>
                 </div>
-
-                {/* Developer Details */}
-                <div className="space-y-0.5">
-                  <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest block">
-                    DEVELOPED BY
-                  </span>
-                  <h3 className="text-sm sm:text-base font-bold text-slate-800 tracking-tight leading-snug">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs sm:text-sm font-bold text-slate-800 tracking-tight group-hover:text-indigo-600 transition-colors">
                     Tanmay Kumar
-                  </h3>
-                  <p className="text-xs text-slate-500 font-normal">
-                    Building smart solutions through code &amp; AI
-                  </p>
+                  </span>
+                  <Linkedin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0a66c2] group-hover:scale-110 transition-transform duration-200 shrink-0" />
                 </div>
-              </div>
+              </a>
 
-              {/* LinkedIn CTA Button */}
-              <div className="shrink-0 w-full sm:w-auto">
-                <a
-                  href="https://www.linkedin.com/in/tanmay-kumar-219a322a9/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="View Tanmay Kumar's LinkedIn profile"
-                  className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/90 hover:bg-white text-slate-700 hover:text-indigo-600 border border-slate-200/80 hover:border-indigo-200 shadow-[0_1px_3px_rgba(15,23,42,0.06)] hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-semibold group/btn"
-                >
-                  <Linkedin className="w-4 h-4 text-[#0a66c2] group-hover/btn:scale-110 transition-transform duration-200" />
-                  <span>View on LinkedIn</span>
-                  <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover/btn:text-indigo-500 group-hover/btn:translate-x-0.5 transition-all duration-200" />
-                </a>
+              {/* Dibya Upadhyay */}
+              <a
+                href="https://www.linkedin.com/in/dibya-upadhyay-659701388/"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="View Dibya Upadhyay's LinkedIn profile"
+                aria-label="Dibya Upadhyay LinkedIn profile"
+                className="group flex items-center gap-2.5 py-2 px-3.5 rounded-2xl bg-[#eef2f7] shadow-[3px_3px_8px_#cbd5e1,-3px_-3px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff] border border-white/70 transition-all duration-200 cursor-pointer w-full sm:w-auto justify-center"
+              >
+                <div className="relative shrink-0 p-[2px] rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-blue-500 shadow-sm transition-transform duration-200 group-hover:scale-105">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 flex items-center justify-center text-white font-bold text-xs tracking-wider shadow-inner select-none">
+                    DU
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs sm:text-sm font-bold text-slate-800 tracking-tight group-hover:text-indigo-600 transition-colors">
+                    Dibya Upadhyay
+                  </span>
+                  <Linkedin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0a66c2] group-hover:scale-110 transition-transform duration-200 shrink-0" />
+                </div>
+              </a>
+            </div>
+
+            {/* Bottom row: Department, University & Mentorship */}
+            <div className="pt-3.5 border-t border-slate-200/80 flex flex-col items-center gap-1.5 text-center text-xs text-slate-500 font-medium">
+              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                <Building2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="text-slate-700 font-semibold">
+                  Department of AI &amp; ML | SoAI, Galgotias University
+                </span>
+              </div>
+              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="text-slate-500">
+                  Mentored by Dr. Gaurav Agarwal, Dr. Tarun Maini and Priyanka Rai
+                </span>
               </div>
             </div>
           </div>
 
           {/* Subtle Centered Footer */}
-          <div className="mt-3.5 text-center text-xs text-slate-400 font-medium flex items-center justify-center gap-2 select-none">
+          <div className="mt-3.5 text-center text-xs text-slate-400 font-medium flex items-center justify-center gap-2 flex-wrap select-none">
             <span>© 2026 Exam Seat Finder</span>
             <span className="text-slate-300" aria-hidden="true">•</span>
             <button
               type="button"
               onClick={() => setIsDisclaimerOpen(true)}
-              className="text-slate-500 hover:text-indigo-600 underline underline-offset-4 decoration-slate-300 hover:decoration-indigo-500 transition-colors cursor-pointer"
+              className="text-slate-500 hover:text-indigo-600 underline underline-offset-4 decoration-slate-300 hover:decoration-indigo-500 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded"
             >
               Disclaimer
             </button>
+            <span className="text-slate-300" aria-hidden="true">•</span>
+            <a
+              href="mailto:examseatfinder@gmail.com"
+              className="text-slate-500 hover:text-indigo-600 underline underline-offset-4 decoration-slate-300 hover:decoration-indigo-500 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded"
+            >
+              Contact Us
+            </a>
           </div>
         </div>
       </footer>
