@@ -1,0 +1,6 @@
+# robots.txt for Exam Seat Finder
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://examseatfinder.online/sitemap.xml

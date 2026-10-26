@@ -20,6 +20,7 @@ app.get('/api/total-visitors', async (req, res) => {
 
 async function start() {
   if (process.env.NODE_ENV !== 'production') {
+    app.use(express.static('public'));
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
