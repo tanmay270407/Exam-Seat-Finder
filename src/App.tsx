@@ -26,7 +26,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import { Analytics } from '@vercel/analytics/react';
-import { supabase } from './supabase';
+import { supabase, isKeyMaskedWithBullets } from './supabase';
 
 interface ExamRecord {
   id: string | number;
@@ -900,6 +900,16 @@ export default function App() {
       return;
     }
 
+    if (isKeyMaskedWithBullets) {
+      setError(
+        'Configuration Error: Your Supabase Anon Key in Vercel contains masked bullet characters (••••••••). In Supabase Dashboard > Project Settings > API, click the Copy button next to the "anon public" key, paste it into Vercel Environment Variables as VITE_SUPABASE_ANON_KEY, and redeploy.'
+      );
+      setRecords([]);
+      setLoading(false);
+      setSearched(true);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setRecords(null);
@@ -946,7 +956,10 @@ export default function App() {
           if (!edgeError && Array.isArray(edgeData?.records)) {
             fetchedRecords = edgeData.records.map(normalizeExamRecord);
           } else if (edgeError) {
-            lastErrorMessage = edgeError.message || lastErrorMessage;
+            // Only use edgeError if we don't already have a more descriptive dbError
+            if (!lastErrorMessage) {
+              lastErrorMessage = edgeError.message || '';
+            }
           } else if (edgeData?.error) {
             lastErrorMessage = edgeData.error;
           }
@@ -980,6 +993,14 @@ export default function App() {
         if (isTimeout) {
           setError(
             'Connection to the examination database timed out. If your Supabase database was recently paused, please resume it in your Supabase dashboard.'
+          );
+        } else if (
+          lastErrorMessage.toLowerCase().includes('failed to send a request to the edge function') ||
+          lastErrorMessage.toLowerCase().includes('invalid api key') ||
+          lastErrorMessage.toLowerCase().includes('jwt')
+        ) {
+          setError(
+            'Unable to connect to the database. Please verify your Supabase API credentials in Vercel Environment Variables.'
           );
         } else {
           setError(lastErrorMessage || 'Unable to search right now. Please try again.');

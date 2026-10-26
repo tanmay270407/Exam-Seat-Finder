@@ -12,9 +12,22 @@ const supabaseAnonKey =
   (typeof process !== 'undefined' && (process.env?.VITE_SUPABASE_ANON_KEY || process.env?.SUPABASE_ANON_KEY)) ||
   '';
 
+export const isKeyMaskedWithBullets =
+  typeof supabaseAnonKey === 'string' && (supabaseAnonKey.includes('•') || supabaseAnonKey.includes('...'));
+
+export const isConfigValid =
+  Boolean(supabaseUrl) &&
+  Boolean(supabaseAnonKey) &&
+  supabaseUrl !== 'https://placeholder.supabase.co' &&
+  !isKeyMaskedWithBullets;
+
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase URL or Anon Key is missing. Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are configured in your environment.');
+} else if (isKeyMaskedWithBullets) {
+  console.error('CRITICAL: Supabase Anon Key contains masked bullet characters (••••••••). You must copy the unmasked key from Supabase Dashboard > Project Settings > API.');
 }
 
+export { supabaseUrl, supabaseAnonKey };
 export const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder');
+
 
