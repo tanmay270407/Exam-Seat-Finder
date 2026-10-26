@@ -30,11 +30,9 @@ import { supabase, isKeyMaskedWithBullets } from './supabase';
 interface ExamRecord {
   id: string | number;
   admission_number: string;
-  enrollment_number?: string;
   student_name: string;
   program?: string;
   semester?: string;
-  section?: string;
   subject_code?: string;
   room_number: string;
   seat_number: string;
@@ -152,11 +150,9 @@ function normalizeExamRecord(raw: any): ExamRecord {
   return {
     id: raw.id,
     admission_number: (raw.admission_number || '').toString().trim(),
-    enrollment_number: raw.enrollment_number ? String(raw.enrollment_number).trim() : undefined,
     student_name: (raw.student_name || '').toString().trim(),
     program: raw.program ? String(raw.program).trim() : undefined,
     semester: raw.semester ? String(raw.semester).trim() : undefined,
-    section: raw.section ? String(raw.section).trim() : undefined,
     subject_code: examName,
     room_number: room,
     seat_number: seat,
@@ -628,7 +624,7 @@ export default function App() {
     // Prevent duplicate concurrent searches
     if (loading) return;
 
-    const normalizedAdmission = admissionNumber.trim();
+    const normalizedAdmission = admissionNumber.trim().toUpperCase();
     if (!normalizedAdmission) {
       setError('Please enter your admission number.');
       return;
@@ -663,8 +659,8 @@ export default function App() {
       try {
         const { data: dbData, error: dbError } = await supabase
           .from('exam_seating')
-          .select('*')
-          .ilike('admission_number', normalizedAdmission)
+          .select('id, admission_number, student_name, exam_name, exam_date, exam_time, room_no, seat_no')
+          .eq('admission_number', normalizedAdmission)
           .abortSignal(searchAbortCtrl.signal);
 
         if (!dbError && Array.isArray(dbData)) {

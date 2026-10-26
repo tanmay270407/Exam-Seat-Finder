@@ -448,10 +448,10 @@ Deno.serve(async (req: Request) => {
     const rawAdmission = body?.admission_number;
     const rawName = body?.student_name;
 
-    // Accidental leading and trailing spaces trimmed; string preserved including leading zeros
+    // Accidental leading and trailing spaces trimmed and normalized to uppercase; string preserved including leading zeros
     const normalizedAdmission = typeof rawAdmission === 'string'
-      ? rawAdmission.trim()
-      : (rawAdmission != null ? String(rawAdmission).trim() : '');
+      ? rawAdmission.trim().toUpperCase()
+      : (rawAdmission != null ? String(rawAdmission).trim().toUpperCase() : '');
     const normalizedName = typeof rawName === 'string' ? normalizeWhitespace(rawName) : '';
 
     if (!normalizedAdmission) {
@@ -496,7 +496,7 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    // Safe parameterized database query matching admission_number case-insensitively using ilike with 6s timeout
+    // Safe parameterized database query matching normalized uppercase admission_number using eq with 6s timeout
     const abortCtrl = new AbortController();
     const queryTimeout = setTimeout(() => abortCtrl.abort(), 6000);
 
@@ -504,8 +504,8 @@ Deno.serve(async (req: Request) => {
     try {
       queryRes = await supabase
         .from('exam_seating')
-        .select('*')
-        .ilike('admission_number', normalizedAdmission)
+        .select('id, admission_number, student_name, exam_name, exam_date, exam_time, room_no, seat_no')
+        .eq('admission_number', normalizedAdmission)
         .abortSignal(abortCtrl.signal);
     } catch (queryErr: any) {
       clearTimeout(queryTimeout);
@@ -581,11 +581,7 @@ Deno.serve(async (req: Request) => {
       return {
         id: raw.id,
         admission_number: (raw.admission_number || '').toString().trim(),
-        enrollment_number: raw.enrollment_number ? String(raw.enrollment_number).trim() : undefined,
         student_name: (raw.student_name || '').toString().trim(),
-        program: raw.program ? String(raw.program).trim() : undefined,
-        semester: raw.semester ? String(raw.semester).trim() : undefined,
-        section: raw.section ? String(raw.section).trim() : undefined,
         subject_code: examName,
         room_number: room,
         seat_number: seat,
@@ -595,15 +591,13 @@ Deno.serve(async (req: Request) => {
       };
     });
 
-    // Filter matching records by exact case-insensitive match on normalized admission number.
+    // Filter matching records by exact match on normalized uppercase admission number.
     // If student_name was optionally supplied (backward compatibility), check it too.
-    const lowerAdmission = normalizedAdmission.toLowerCase();
-
     const matchingRecords = normalizedData.filter((record: any) => {
       const recordAdmission = (typeof record?.admission_number === 'string'
         ? record.admission_number
-        : String(record?.admission_number || '')).trim().toLowerCase();
-      const admissionMatches = recordAdmission === lowerAdmission;
+        : String(record?.admission_number || '')).trim().toUpperCase();
+      const admissionMatches = recordAdmission === normalizedAdmission;
 
       if (normalizedName) {
         return admissionMatches && isNameMatch(normalizedName, record?.student_name || '');
