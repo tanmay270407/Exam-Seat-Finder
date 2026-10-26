@@ -20,17 +20,19 @@
     <script>
       // Gracefully handle dev-server WebSocket closures in proxied/sandboxed environments
       window.addEventListener('unhandledrejection', function (e) {
-        var msg = e && e.reason && (e.reason.message || String(e.reason));
-        if (msg && (msg.indexOf('WebSocket') !== -1 || msg.indexOf('closed without opened') !== -1)) {
-          e.preventDefault();
+        var msg = e && (e.reason ? (e.reason.message || String(e.reason)) : String(e));
+        if (msg && (msg.indexOf('WebSocket') !== -1 || msg.indexOf('closed without opened') !== -1 || msg.indexOf('vite') !== -1)) {
+          if (e.preventDefault) e.preventDefault();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
         }
       });
       window.addEventListener('error', function (e) {
-        var msg = e && (e.message || (e.error && e.error.message));
-        if (msg && (msg.indexOf('WebSocket') !== -1 || msg.indexOf('closed without opened') !== -1)) {
-          e.preventDefault();
+        var msg = e && (e.message || (e.error && e.error.message) || String(e));
+        if (msg && (msg.indexOf('WebSocket') !== -1 || msg.indexOf('closed without opened') !== -1 || msg.indexOf('vite') !== -1)) {
+          if (e.preventDefault) e.preventDefault();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
         }
-      });
+      }, true);
     </script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4993492005104720" crossorigin="anonymous"></script>
   </head>
