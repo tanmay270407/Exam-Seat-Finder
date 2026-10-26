@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   GraduationCap,
   Search,
@@ -22,8 +22,7 @@ import {
   CheckCircle2,
   Loader2,
   ShieldAlert,
-  ChevronDown,
-  BarChart3
+  ChevronDown
 } from 'lucide-react';
 import { Analytics } from '@vercel/analytics/react';
 import { supabase, isKeyMaskedWithBullets } from './supabase';
@@ -545,74 +544,6 @@ export default function App() {
   // Disclaimer Modal State
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
 
-  // Total Visitors Tracking (Vercel Web Analytics API)
-  const [totalVisitors, setTotalVisitors] = useState<number | null>(null);
-  const [totalVisitorsLoading, setTotalVisitorsLoading] = useState<boolean>(true);
-  const [totalVisitorsPeriod, setTotalVisitorsPeriod] = useState<string | null>(null);
-  const [totalVisitorsError, setTotalVisitorsError] = useState<boolean>(false);
-
-  // Total Visitors from Vercel Web Analytics API
-  useEffect(() => {
-    let isMounted = true;
-    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
-
-    const fetchTotalVisitors = async (isBackground = false) => {
-      try {
-        if (!isBackground) {
-          setTotalVisitorsLoading(true);
-        }
-        // Cache-busting query parameter & no-store ensure fresh analytics data is always retrieved
-        const response = await fetch(`/api/total-visitors?_t=${Date.now()}`, {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache',
-            Pragma: 'no-cache',
-          },
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const data = await response.json();
-        if (!isMounted) return;
-
-        if (data.available && typeof data.totalVisitors === 'number') {
-          setTotalVisitors(data.totalVisitors);
-          setTotalVisitorsPeriod(data.period || null);
-          setTotalVisitorsError(false);
-        } else {
-          setTotalVisitors(null);
-          setTotalVisitorsError(true);
-        }
-      } catch (err) {
-        if (!isMounted) return;
-        setTotalVisitorsError(true);
-        // Subtle retry once after 10s if initial fetch failed
-        if (!isBackground) {
-          retryTimeout = setTimeout(() => {
-            if (isMounted) fetchTotalVisitors(true);
-          }, 10000);
-        }
-      } finally {
-        if (isMounted && !isBackground) {
-          setTotalVisitorsLoading(false);
-        }
-      }
-    };
-
-    fetchTotalVisitors();
-
-    // Refresh approximately every 60 seconds as requested
-    const refreshInterval = setInterval(() => {
-      fetchTotalVisitors(true);
-    }, 60 * 1000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(refreshInterval);
-      if (retryTimeout) clearTimeout(retryTimeout);
-    };
-  }, []);
-
   // Close modals on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -969,45 +900,9 @@ export default function App() {
           /* 1. Home / Search Page */
           <div className="space-y-8 animate-fade-in">
             <div className="text-center space-y-2">
-              <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-800 tracking-tight -translate-y-[13px]">
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-800 tracking-tight">
                 Find Your Seat
               </h2>
-            </div>
-
-            {/* Total Visitors Badge (Vercel Web Analytics) */}
-            <div className="flex items-center justify-center -mb-5 sm:-mb-6 relative -top-[28px] sm:-top-[36px]">
-              <div
-                className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-2xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff] border border-white/80 select-none text-slate-700 transition-all duration-200 shrink-0"
-                title={
-                  totalVisitors !== null
-                    ? `Total visitors: ${totalVisitors.toLocaleString()}${totalVisitorsPeriod ? ` (${totalVisitorsPeriod})` : ''} via Vercel Analytics`
-                    : totalVisitorsError
-                    ? 'Total visitors analytics temporarily unavailable'
-                    : 'Loading total visitors...'
-                }
-                aria-label={
-                  totalVisitors !== null
-                    ? `${totalVisitors.toLocaleString()} total visitors`
-                    : 'Total visitors'
-                }
-              >
-                <BarChart3 className="w-3.5 h-3.5 text-indigo-600 shrink-0" aria-hidden="true" />
-                <span className="text-[11px] sm:text-xs font-semibold tracking-tight whitespace-nowrap">
-                  {totalVisitors !== null ? (
-                    <>
-                      <span className="font-bold text-indigo-600">{totalVisitors.toLocaleString()}</span>{' '}
-                      <span className="text-slate-600">total visitors</span>
-                    </>
-                  ) : totalVisitorsLoading ? (
-                    <>
-                      <span className="font-bold text-indigo-600 animate-pulse">...</span>{' '}
-                      <span className="text-slate-500">total visitors</span>
-                    </>
-                  ) : (
-                    <span className="text-slate-500 font-medium">Visitors unavailable</span>
-                  )}
-                </span>
-              </div>
             </div>
 
             {/* Search Card */}

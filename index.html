@@ -22,8 +22,14 @@
       (function () {
         var origError = console.error;
         console.error = function () {
-          var msg = arguments && arguments[0];
-          if (typeof msg === 'string' && (msg.indexOf('[vite] failed to connect to websocket') !== -1 || msg.indexOf('WebSocket closed without opened') !== -1)) {
+          var allArgs = '';
+          for (var i = 0; i < arguments.length; i++) {
+            var a = arguments[i];
+            allArgs += ' ' + ((a && a.message) ? a.message : (a && a.stack) ? a.stack : String(a));
+          }
+          if (allArgs.indexOf('failed to connect to websocket') !== -1 ||
+              allArgs.indexOf('WebSocket closed without opened') !== -1 ||
+              allArgs.indexOf('[vite]') !== -1) {
             return;
           }
           origError.apply(console, arguments);
@@ -32,16 +38,39 @@
         var NativeWS = window.WebSocket;
         if (NativeWS) {
           window.WebSocket = function (url, protocols) {
-            if (typeof url === 'string' && (url.indexOf('/@vite/client') !== -1 || url.indexOf('vite') !== -1)) {
+            var isViteHmr = false;
+            if (protocols === 'vite-hmr' || (Array.isArray(protocols) && protocols.indexOf('vite-hmr') !== -1)) {
+              isViteHmr = true;
+            }
+            if (typeof url === 'string' && (url.indexOf('token=') !== -1 || url.indexOf('vite') !== -1 || url.indexOf('/@vite/client') !== -1)) {
+              isViteHmr = true;
+            }
+            if (isViteHmr) {
+              var listeners = {};
               return {
-                readyState: 3,
+                readyState: 1, // OPEN
+                OPEN: 1,
+                CONNECTING: 0,
+                CLOSING: 2,
+                CLOSED: 3,
                 bufferedAmount: 0,
                 extensions: '',
-                protocol: '',
+                protocol: 'vite-hmr',
                 binaryType: 'blob',
-                addEventListener: function () {},
-                removeEventListener: function () {},
-                dispatchEvent: function () { return false; },
+                url: String(url),
+                onopen: null,
+                onclose: null,
+                onerror: null,
+                onmessage: null,
+                addEventListener: function (type, fn) {
+                  listeners[type] = listeners[type] || [];
+                  listeners[type].push(fn);
+                },
+                removeEventListener: function (type, fn) {
+                  if (!listeners[type]) return;
+                  listeners[type] = listeners[type].filter(function (f) { return f !== fn; });
+                },
+                dispatchEvent: function () { return true; },
                 send: function () {},
                 close: function () {}
               };
@@ -49,18 +78,22 @@
             return new NativeWS(url, protocols);
           };
           window.WebSocket.prototype = NativeWS.prototype;
+          window.WebSocket.CONNECTING = 0;
+          window.WebSocket.OPEN = 1;
+          window.WebSocket.CLOSING = 2;
+          window.WebSocket.CLOSED = 3;
         }
       })();
 
       window.addEventListener('unhandledrejection', function (e) {
-        var msg = e && (e.reason ? (e.reason.message || String(e.reason)) : String(e));
+        var msg = e && (e.reason ? (e.reason.message || e.reason.stack || String(e.reason)) : String(e));
         if (msg && (msg.indexOf('WebSocket') !== -1 || msg.indexOf('closed without opened') !== -1 || msg.indexOf('vite') !== -1)) {
           if (e.preventDefault) e.preventDefault();
           if (e.stopImmediatePropagation) e.stopImmediatePropagation();
         }
       });
       window.addEventListener('error', function (e) {
-        var msg = e && (e.message || (e.error && e.error.message) || String(e));
+        var msg = e && (e.message || (e.error && (e.error.message || e.error.stack)) || String(e));
         if (msg && (msg.indexOf('WebSocket') !== -1 || msg.indexOf('closed without opened') !== -1 || msg.indexOf('vite') !== -1)) {
           if (e.preventDefault) e.preventDefault();
           if (e.stopImmediatePropagation) e.stopImmediatePropagation();
