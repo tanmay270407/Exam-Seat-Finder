@@ -466,11 +466,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Server-side privileged credentials (keeps secret key off client)
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    // Server-side credentials (uses official Supabase project URL & server environment variables)
+    const supabaseUrl =
+      Deno.env.get('SUPABASE_URL') ||
+      Deno.env.get('VITE_SUPABASE_URL') ||
+      '';
     const supabaseServiceKey =
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
       Deno.env.get('SUPABASE_ANON_KEY') ||
+      Deno.env.get('VITE_SUPABASE_ANON_KEY') ||
       '';
 
     if (!supabaseUrl || !supabaseServiceKey) {
@@ -492,21 +496,50 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    // Safe parameterized database query matching admission_number case-insensitively using ilike
-    const { data, error } = await supabase
-      .from('exam_seating')
-      .select(
-        'id, admission_number, enrollment_number, student_name, program, semester, section, subject_code, room_number, seat_number, exam_date, shift, shift_timing'
-      )
-      .ilike('admission_number', normalizedAdmission);
+    // Safe parameterized database query matching admission_number case-insensitively using ilike with 6s timeout
+    const abortCtrl = new AbortController();
+    const queryTimeout = setTimeout(() => abortCtrl.abort(), 6000);
 
-    if (error) {
+    let queryRes: any;
+    try {
+      queryRes = await supabase
+        .from('exam_seating')
+        .select('*')
+        .ilike('admission_number', normalizedAdmission)
+        .abortSignal(abortCtrl.signal);
+    } catch (queryErr: any) {
+      clearTimeout(queryTimeout);
+      const isTimeout = queryErr?.name === 'AbortError' || abortCtrl.signal.aborted;
       return new Response(
         JSON.stringify({
-          error: 'Database query error occurred while searching for seating records.',
+          error: isTimeout
+            ? 'Connection to the examination database timed out (Cloudflare Error 522). If your Supabase database is paused, please resume it in your Supabase dashboard.'
+            : (queryErr?.message || 'Database connection error.'),
         }),
         {
-          status: 500,
+          status: isTimeout ? 504 : 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    } finally {
+      clearTimeout(queryTimeout);
+    }
+
+    const { data, error } = queryRes || {};
+
+    if (error) {
+      const is522orTimeout =
+        error.message?.includes('522') ||
+        error.message?.includes('timeout') ||
+        error.code === '57014';
+      return new Response(
+        JSON.stringify({
+          error: is522orTimeout
+            ? 'Connection to the examination database timed out (Cloudflare Error 522). If your Supabase database is paused, please resume it in your Supabase dashboard.'
+            : 'Database query error occurred while searching for seating records.',
+        }),
+        {
+          status: is522orTimeout ? 504 : 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
@@ -525,11 +558,48 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Normalize database record columns to standard format
+    const normalizedData = data.map((raw: any) => {
+      const room = (raw.room_no || raw.room_number || 'TBA').toString().trim();
+      const seat = (raw.seat_no || raw.seat_number || 'TBA').toString().trim();
+      const examName = (raw.exam_name || raw.subject_code || '').toString().trim();
+      const examTime = (raw.exam_time || raw.shift_timing || '').toString().trim();
+      const examDate = (raw.exam_date || '').toString().trim();
+      let shift = (raw.shift || '').toString().trim();
+
+      if (!shift && examTime) {
+        const timing = parseShiftTiming(examTime, null);
+        if (timing) {
+          const startMin = timing.start.hour * 60 + timing.start.minute;
+          if (startMin <= 10 * 60) shift = 'Shift 1';
+          else if (startMin <= 12 * 60 + 30) shift = 'Shift 2';
+          else if (startMin <= 14 * 60 + 30) shift = 'Shift 3';
+          else shift = 'Shift 4';
+        }
+      }
+
+      return {
+        id: raw.id,
+        admission_number: (raw.admission_number || '').toString().trim(),
+        enrollment_number: raw.enrollment_number ? String(raw.enrollment_number).trim() : undefined,
+        student_name: (raw.student_name || '').toString().trim(),
+        program: raw.program ? String(raw.program).trim() : undefined,
+        semester: raw.semester ? String(raw.semester).trim() : undefined,
+        section: raw.section ? String(raw.section).trim() : undefined,
+        subject_code: examName,
+        room_number: room,
+        seat_number: seat,
+        exam_date: examDate,
+        shift: shift || 'Shift 1',
+        shift_timing: examTime,
+      };
+    });
+
     // Filter matching records by exact case-insensitive match on normalized admission number.
     // If student_name was optionally supplied (backward compatibility), check it too.
     const lowerAdmission = normalizedAdmission.toLowerCase();
 
-    const matchingRecords = data.filter((record: any) => {
+    const matchingRecords = normalizedData.filter((record: any) => {
       const recordAdmission = (typeof record?.admission_number === 'string'
         ? record.admission_number
         : String(record?.admission_number || '')).trim().toLowerCase();
