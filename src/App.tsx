@@ -545,208 +545,11 @@ export default function App() {
   // Disclaimer Modal State
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
 
-  // Live Active Visitors Tracking (Supabase active_visitors RPC & Realtime)
-  const [onlineCount, setOnlineCount] = useState<number | null>(null);
-  const [trackingFailed, setTrackingFailed] = useState<boolean>(false);
-
   // Total Visitors Tracking (Vercel Web Analytics API)
   const [totalVisitors, setTotalVisitors] = useState<number | null>(null);
   const [totalVisitorsLoading, setTotalVisitorsLoading] = useState<boolean>(true);
   const [totalVisitorsPeriod, setTotalVisitorsPeriod] = useState<string | null>(null);
   const [totalVisitorsError, setTotalVisitorsError] = useState<boolean>(false);
-
-  // Guards against overlapping network calls and unnecessary re-renders
-  const isHeartbeatInProgress = useRef(false);
-  const isCountFetchInProgress = useRef(false);
-  const lastCountRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    // 1. Stable, random visitor ID per browser tab using sessionStorage
-    let tabVisitorId = '';
-    try {
-      tabVisitorId = sessionStorage.getItem('esf_tab_visitor_id') || '';
-      if (!tabVisitorId) {
-        tabVisitorId = typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `tab_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
-        sessionStorage.setItem('esf_tab_visitor_id', tabVisitorId);
-      }
-    } catch {
-      // In private browsing mode or when storage is restricted
-      tabVisitorId = `tab_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
-    }
-
-    let isMounted = true;
-
-    // Helper: update active count only when changed to avoid unnecessary re-renders
-    const applyCount = (val: number) => {
-      if (!isMounted) return;
-      if (typeof val === 'number' && !isNaN(val)) {
-        const safeCount = Math.max(0, Math.floor(val));
-        if (lastCountRef.current !== safeCount) {
-          lastCountRef.current = safeCount;
-          setOnlineCount(safeCount);
-        }
-        setTrackingFailed(false);
-      }
-    };
-
-    // 2. Call record_visitor_heartbeat with direct table fallback
-    const sendHeartbeat = async () => {
-      if (isHeartbeatInProgress.current) return;
-      isHeartbeatInProgress.current = true;
-      const hbCtrl = new AbortController();
-      const hbTimer = setTimeout(() => hbCtrl.abort(), 4000);
-
-      try {
-        const { data, error } = await supabase
-          .rpc('record_visitor_heartbeat', {
-            v_id: tabVisitorId,
-          })
-          .abortSignal(hbCtrl.signal);
-
-        clearTimeout(hbTimer);
-        if (!error && typeof data === 'number') {
-          applyCount(data);
-        } else {
-          // Graceful fallback to direct active_visitors table if RPC does not exist yet
-          try {
-            await supabase.from('active_visitors').upsert({
-              visitor_id: tabVisitorId,
-              last_seen: new Date().toISOString(),
-            });
-            const threeMinsAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
-            const { count } = await supabase
-              .from('active_visitors')
-              .select('*', { count: 'exact', head: true })
-              .gte('last_seen', threeMinsAgo);
-            if (typeof count === 'number') {
-              applyCount(count);
-            }
-          } catch {
-            if (lastCountRef.current === null) {
-              setTrackingFailed(true);
-            }
-          }
-        }
-      } catch (err) {
-        clearTimeout(hbTimer);
-        if (lastCountRef.current === null) {
-          setTrackingFailed(true);
-        }
-      } finally {
-        clearTimeout(hbTimer);
-        isHeartbeatInProgress.current = false;
-      }
-    };
-
-    // 3. Periodically refresh count via get_active_visitors_count with direct fallback
-    const refreshCount = async () => {
-      if (isCountFetchInProgress.current) return;
-      isCountFetchInProgress.current = true;
-      const rcCtrl = new AbortController();
-      const rcTimer = setTimeout(() => rcCtrl.abort(), 4000);
-
-      try {
-        const { data, error } = await supabase
-          .rpc('get_active_visitors_count')
-          .abortSignal(rcCtrl.signal);
-
-        clearTimeout(rcTimer);
-        if (!error && typeof data === 'number') {
-          applyCount(data);
-        } else {
-          // Direct count fallback
-          try {
-            const threeMinsAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
-            const { count } = await supabase
-              .from('active_visitors')
-              .select('*', { count: 'exact', head: true })
-              .gte('last_seen', threeMinsAgo);
-            if (typeof count === 'number') {
-              applyCount(count);
-            }
-          } catch {
-            // silent fallback
-          }
-        }
-      } catch (err) {
-        clearTimeout(rcTimer);
-      } finally {
-        clearTimeout(rcTimer);
-        isCountFetchInProgress.current = false;
-      }
-    };
-
-    // Immediate heartbeat when page loads
-    sendHeartbeat();
-
-    // Heartbeat every 30 seconds
-    const heartbeatTimer = setInterval(sendHeartbeat, 30000);
-
-    // Refresh count every 15 seconds to catch 3-minute window expiries
-    const refreshTimer = setInterval(refreshCount, 15000);
-
-    // 4. Supabase Realtime subscription on public.active_visitors
-    const channel = supabase
-      .channel('realtime-active-visitors')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'active_visitors',
-        },
-        () => {
-          refreshCount();
-        }
-      )
-      .subscribe((status, err) => {
-        if (err || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          // Graceful handling to prevent uncaught exceptions when database is waking up
-        }
-      });
-
-    // 5. Visibility change handling: immediately re-send heartbeat when returning to tab
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        sendHeartbeat();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    // 6. Best-effort pagehide and beforeunload removal of visitor session
-    const handleTabClose = () => {
-      try {
-        supabase.rpc('remove_visitor_session', { v_id: tabVisitorId }).then(
-          () => {},
-          () => {
-            supabase.from('active_visitors').delete().eq('visitor_id', tabVisitorId);
-          }
-        );
-      } catch {
-        // Best-effort cleanup
-      }
-    };
-
-    window.addEventListener('pagehide', handleTabClose);
-    window.addEventListener('beforeunload', handleTabClose);
-
-    // Cleanup on component unmount
-    return () => {
-      isMounted = false;
-      clearInterval(heartbeatTimer);
-      clearInterval(refreshTimer);
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('pagehide', handleTabClose);
-      window.removeEventListener('beforeunload', handleTabClose);
-      try {
-        supabase.removeChannel(channel);
-      } catch {
-        // Silent cleanup
-      }
-    };
-  }, []);
 
   // Total Visitors from Vercel Web Analytics API
   useEffect(() => {
@@ -1171,11 +974,10 @@ export default function App() {
               </h2>
             </div>
 
-            {/* Visitor Counters Row: Total Visitors (Left) & Students Online (Right) */}
-            <div className="flex items-center justify-between gap-2 -mb-5 sm:-mb-6 relative -top-[28px] sm:-top-[36px] px-0.5 sm:px-1">
-              {/* Total Visitors Pill - Positioned left-aligned directly beneath heading */}
+            {/* Total Visitors Badge (Vercel Web Analytics) */}
+            <div className="flex items-center justify-center -mb-5 sm:-mb-6 relative -top-[28px] sm:-top-[36px]">
               <div
-                className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff] border border-white/80 select-none text-slate-700 transition-all duration-200 shrink-0"
+                className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-2xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff] border border-white/80 select-none text-slate-700 transition-all duration-200 shrink-0"
                 title={
                   totalVisitors !== null
                     ? `Total visitors: ${totalVisitors.toLocaleString()}${totalVisitorsPeriod ? ` (${totalVisitorsPeriod})` : ''} via Vercel Analytics`
@@ -1203,41 +1005,6 @@ export default function App() {
                     </>
                   ) : (
                     <span className="text-slate-500 font-medium">Visitors unavailable</span>
-                  )}
-                </span>
-              </div>
-
-              {/* Live Visitor Indicator - Positioned right-aligned */}
-              <div
-                className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-[#eef2f7] shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff] border border-white/80 select-none text-slate-700 transition-all duration-200 shrink-0"
-                title={
-                  onlineCount !== null
-                    ? `${onlineCount} ${onlineCount === 1 ? 'student' : 'students'} active online (last 3 mins)`
-                    : 'Active student activity'
-                }
-                aria-label={
-                  onlineCount !== null
-                    ? `${onlineCount} ${onlineCount === 1 ? 'student' : 'students'} online`
-                    : 'Active student activity'
-                }
-              >
-                <span className="relative flex h-2 w-2 shrink-0">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                </span>
-                <span className="text-[11px] sm:text-xs font-semibold tracking-tight whitespace-nowrap">
-                  {onlineCount !== null ? (
-                    <>
-                      <span className="font-bold text-slate-800">{onlineCount}</span>{' '}
-                      <span>{onlineCount === 1 ? 'student online' : 'students online'}</span>
-                    </>
-                  ) : trackingFailed ? (
-                    <span className="text-slate-500 font-medium">Students online</span>
-                  ) : (
-                    <>
-                      <span className="font-bold text-slate-800">...</span>{' '}
-                      <span>students online</span>
-                    </>
                   )}
                 </span>
               </div>
