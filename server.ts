@@ -5,6 +5,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Ensure DISABLE_HMR is set to 'true' in development mode to honor AI Studio constraints and avoid proxy WebSocket errors
+if (process.env.DISABLE_HMR === undefined) {
+  process.env.DISABLE_HMR = 'true';
+}
+
 const app = express();
 const PORT = 3000;
 

@@ -17,6 +17,21 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <script>
+      // Gracefully handle dev-server WebSocket closures in proxied/sandboxed environments
+      window.addEventListener('unhandledrejection', function (e) {
+        var msg = e && e.reason && (e.reason.message || String(e.reason));
+        if (msg && (msg.indexOf('WebSocket') !== -1 || msg.indexOf('closed without opened') !== -1)) {
+          e.preventDefault();
+        }
+      });
+      window.addEventListener('error', function (e) {
+        var msg = e && (e.message || (e.error && e.error.message));
+        if (msg && (msg.indexOf('WebSocket') !== -1 || msg.indexOf('closed without opened') !== -1)) {
+          e.preventDefault();
+        }
+      });
+    </script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4993492005104720" crossorigin="anonymous"></script>
   </head>
   <body class="bg-[#f0f4f8] text-slate-800 font-['Plus_Jakarta_Sans',sans-serif] antialiased min-h-screen">
