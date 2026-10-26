@@ -18,7 +18,18 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <script>
-      // Gracefully handle dev-server WebSocket closures in proxied/sandboxed environments
+      // Gracefully suppress dev-server WebSocket messages in Cloud Run proxy environment
+      (function () {
+        var origError = console.error;
+        console.error = function () {
+          var msg = arguments && arguments[0];
+          if (typeof msg === 'string' && (msg.indexOf('[vite] failed to connect to websocket') !== -1 || msg.indexOf('WebSocket closed without opened') !== -1)) {
+            return;
+          }
+          origError.apply(console, arguments);
+        };
+      })();
+
       window.addEventListener('unhandledrejection', function (e) {
         var msg = e && (e.reason ? (e.reason.message || String(e.reason)) : String(e));
         if (msg && (msg.indexOf('WebSocket') !== -1 || msg.indexOf('closed without opened') !== -1 || msg.indexOf('vite') !== -1)) {
