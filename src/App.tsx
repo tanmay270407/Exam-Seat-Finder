@@ -1215,7 +1215,7 @@ export default function App() {
               <div className="flex items-center justify-center gap-1.5 flex-wrap">
                 <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                 <span className="text-slate-500">
-                  Mentored by Dr. Gaurav Agarwal, Dr. Tarun Maini and Priyanka Rai
+                  Mentored by Dr. Gaurav Agarwal, Dr. Tarun Maini and Ms. Priyanka Rai
                 </span>
               </div>
             </div>
