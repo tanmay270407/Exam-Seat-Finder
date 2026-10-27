@@ -590,21 +590,56 @@ export default function App() {
       return;
     }
 
+    const rawScriptUrl =
+      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_SCRIPT_URL) ||
+      (typeof process !== 'undefined' && process.env?.VITE_GOOGLE_SCRIPT_URL) ||
+      '';
+    const scriptUrl = String(rawScriptUrl).trim();
+
+    if (!scriptUrl) {
+      console.error('Configuration Error: VITE_GOOGLE_SCRIPT_URL environment variable is missing.');
+      setFeedbackError('Feedback service is not configured (missing VITE_GOOGLE_SCRIPT_URL).');
+      return;
+    }
+
     setSubmittingFeedback(true);
     setFeedbackError(null);
 
     try {
-      const { error: insertError } = await supabase.from('website_feedback').insert([
-        {
+      const response = await fetch(scriptUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify({
           rating: feedbackRating,
           category: feedbackCategory,
           comments: trimmedComments,
           name: feedbackName.trim() || null,
-        },
-      ]);
+        }),
+        redirect: 'follow',
+      });
 
-      if (insertError) {
-        console.error('Feedback insertion error:', insertError);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const resultText = await response.text();
+      let isSaved = false;
+
+      try {
+        const resultJson = JSON.parse(resultText);
+        isSaved =
+          resultJson?.status === 'success' ||
+          resultJson?.result === 'success' ||
+          resultJson?.ok === true ||
+          resultJson?.success === true;
+      } catch {
+        isSaved = /success|ok/i.test(resultText);
+      }
+
+      if (!isSaved) {
+        console.error('Feedback submission error: Unexpected response from Apps Script:', resultText);
         setFeedbackError('Unable to submit feedback right now. Please try again.');
         return;
       }

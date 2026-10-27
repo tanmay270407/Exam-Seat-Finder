@@ -7,6 +7,12 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+  const googleScriptUrl =
+    env.VITE_GOOGLE_SCRIPT_URL ||
+    env.GOOGLE_SCRIPT_URL ||
+    process.env.VITE_GOOGLE_SCRIPT_URL ||
+    process.env.GOOGLE_SCRIPT_URL ||
+    'https://script.google.com/macros/s/AKfycbzTpl0HvQBBO3_I5xjX-_6pSoYI6CvXAQEmOoSBE60XroBnIr_8TtiBdZUMm-UdqvXvmw/exec';
 
   return {
     plugins: [react(), tailwindcss()],
@@ -20,10 +26,12 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),
       'import.meta.env.SUPABASE_URL': JSON.stringify(supabaseUrl),
       'import.meta.env.SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),
+      'import.meta.env.VITE_GOOGLE_SCRIPT_URL': JSON.stringify(googleScriptUrl),
       'process.env.VITE_SUPABASE_URL': JSON.stringify(supabaseUrl),
       'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),
       'process.env.SUPABASE_URL': JSON.stringify(supabaseUrl),
       'process.env.SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),
+      'process.env.VITE_GOOGLE_SCRIPT_URL': JSON.stringify(googleScriptUrl),
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
