@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://examseatfinder.online/sitemap.xml
+Sitemap: https://www.examseatfinder.online/sitemap.xml

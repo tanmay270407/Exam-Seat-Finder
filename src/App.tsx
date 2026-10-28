@@ -934,6 +934,9 @@ export default function App() {
               <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-800 tracking-tight">
                 Find Your Seat
               </h2>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-md mx-auto leading-relaxed">
+                Enter your admission number below to look up your examination room, seat number, and exam schedule.
+              </p>
             </div>
 
             {/* Search Card */}
