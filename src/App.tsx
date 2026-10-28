@@ -126,6 +126,82 @@ function parseShiftTiming(
   };
 }
 
+// Words that never represent a standalone course code
+const INVALID_COURSE_CODE_WORDS = new Set([
+  'EXAM', 'EXAMS', 'EXAMINATION', 'DEBR', 'DEBARRED', 'MIDTERM', 'ENDTERM',
+  'PRACTICAL', 'THEORY', 'SEC', 'SECTION', 'SEM', 'SEMESTER', 'BATCH',
+  'YEAR', 'REGULAR', 'BACKLOG', 'REAPPEAR', 'SPECIAL', 'LAB'
+]);
+
+// Strips PDF column bleed where a Roman numeral prefix got concatenated (e.g. IIE2UC304C -> E2UC304C)
+function cleanCourseCodeBleed(code: string): string {
+  if (!code) return code;
+  const bleedMatch = code.match(/^(?:I{2,3}|IV|VI{1,3})([A-Z]\d[A-Z0-9_-]+)$/i);
+  if (bleedMatch) {
+    return bleedMatch[1];
+  }
+  return code;
+}
+
+// Validates whether a token matches university course code formatting
+function isCourseCodeToken(token: string): boolean {
+  if (!token) return false;
+  const clean = token.trim();
+  if (clean.length < 4 || clean.length > 15) return false;
+  if (INVALID_COURSE_CODE_WORDS.has(clean.toUpperCase())) return false;
+  if (!/[0-9]/.test(clean) || !/[A-Za-z]/.test(clean)) return false;
+  if (/^\d{4}[-–/]\d{2,4}$/.test(clean)) return false;
+  if (/^(?:SEC|SEM)[-_]?\d+$/i.test(clean)) return false;
+  return true;
+}
+
+// Extracts the true course code from standalone or composite exam_name database strings
+function extractCourseCode(examName?: string | null): string | undefined {
+  if (!examName || typeof examName !== 'string') return undefined;
+  const raw = examName.trim();
+  if (!raw) return undefined;
+
+  // Case 1: Combined course codes like "OCI115 & PSYC12"
+  if (raw.includes('&') && !raw.includes('|')) {
+    const parts = raw.split('&').map((p) => p.trim());
+    if (parts.length === 2 && isCourseCodeToken(parts[0]) && isCourseCodeToken(parts[1])) {
+      return `${cleanCourseCodeBleed(parts[0])} & ${cleanCourseCodeBleed(parts[1])}`;
+    }
+  }
+
+  // Case 2: Pipe-delimited composites like "BBA (AM) 2022-23 I | Sem I | Debr. Exam | D1UA102T"
+  if (raw.includes('|')) {
+    const segments = raw.split('|').map((s) => s.trim()).filter(Boolean);
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const seg = segments[i];
+      if (isCourseCodeToken(seg)) {
+        return cleanCourseCodeBleed(seg);
+      }
+      const tokens = seg.split(/\s+/).filter(Boolean);
+      const lastToken = tokens[tokens.length - 1];
+      if (lastToken && isCourseCodeToken(lastToken)) {
+        return cleanCourseCodeBleed(lastToken);
+      }
+    }
+  }
+
+  // Case 3: Direct standalone code
+  if (isCourseCodeToken(raw)) {
+    return cleanCourseCodeBleed(raw);
+  }
+
+  // Case 4: Space-delimited composites (e.g. "Int_BBA+MBA IV 2023-2024 Sem VII Sec-1 D1PK122T")
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const token = tokens[i];
+    if (isCourseCodeToken(token)) {
+      return cleanCourseCodeBleed(token);
+    }
+  }
+
+  return undefined;
+}
+
 // Normalizes database record columns (supporting both new schema and legacy schema)
 function normalizeExamRecord(raw: any): ExamRecord {
   const room = (raw.room_no || raw.room_number || 'TBA').toString().trim();
@@ -153,7 +229,7 @@ function normalizeExamRecord(raw: any): ExamRecord {
     student_name: (raw.student_name || '').toString().trim(),
     program: raw.program ? String(raw.program).trim() : undefined,
     semester: raw.semester ? String(raw.semester).trim() : undefined,
-    subject_code: examName,
+    subject_code: extractCourseCode(examName) || undefined,
     room_number: room,
     seat_number: seat,
     exam_date: examDate,
@@ -934,9 +1010,6 @@ export default function App() {
               <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-800 tracking-tight">
                 Find Your Seat
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-md mx-auto leading-relaxed">
-                Enter your admission number below to look up your examination room, seat number, and exam schedule.
-              </p>
             </div>
 
             {/* Search Card */}
