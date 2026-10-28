@@ -609,6 +609,7 @@ export default function App() {
   const [feedbackCategory, setFeedbackCategory] = useState<'Appreciation' | 'Suggestion' | 'Report an Issue'>('Appreciation');
   const [feedbackComments, setFeedbackComments] = useState('');
   const [feedbackName, setFeedbackName] = useState('');
+  const [feedbackEmail, setFeedbackEmail] = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
@@ -647,6 +648,7 @@ export default function App() {
     setFeedbackCategory('Appreciation');
     setFeedbackComments('');
     setFeedbackName('');
+    setFeedbackEmail('');
     setFeedbackError(null);
     setFeedbackSuccess(false);
   };
@@ -663,6 +665,29 @@ export default function App() {
 
     if (!feedbackRating || feedbackRating < 1 || feedbackRating > 5) {
       setFeedbackError('Please select a rating between 1 and 5 stars.');
+      return;
+    }
+
+    const trimmedName = feedbackName.trim();
+    if (feedbackCategory === 'Report an Issue' && !trimmedName) {
+      setFeedbackError('Please enter your name.');
+      return;
+    }
+
+    const trimmedEmail = feedbackEmail.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (feedbackCategory === 'Report an Issue') {
+      if (!trimmedEmail) {
+        setFeedbackError('Please enter your email address so we can follow up on the issue.');
+        return;
+      }
+      if (!emailRegex.test(trimmedEmail)) {
+        setFeedbackError('Please enter a valid email address (e.g. name@example.com).');
+        return;
+      }
+    } else if (trimmedEmail && !emailRegex.test(trimmedEmail)) {
+      setFeedbackError('Please enter a valid email address or leave it blank.');
       return;
     }
 
@@ -692,6 +717,7 @@ export default function App() {
           category: feedbackCategory,
           comments: trimmedComments,
           name: feedbackName.trim() || null,
+          email: feedbackCategory === 'Report an Issue' ? trimmedEmail : (trimmedEmail || null),
         }),
         redirect: 'follow',
       });
@@ -1548,21 +1574,53 @@ export default function App() {
                   />
                 </div>
 
-                {/* Name (Optional) */}
+                {/* Name (Mandatory for Report an Issue, Optional otherwise) */}
                 <div>
                   <label htmlFor="feedback-name" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-                    Name (Optional)
+                    {feedbackCategory === 'Report an Issue' ? (
+                      <>
+                        Name <span className="text-red-500">*</span>
+                      </>
+                    ) : (
+                      'Name (Optional)'
+                    )}
                   </label>
                   <input
                     id="feedback-name"
                     type="text"
+                    required={feedbackCategory === 'Report an Issue'}
                     disabled={submittingFeedback}
                     value={feedbackName}
-                    onChange={(e) => setFeedbackName(e.target.value)}
-                    placeholder="e.g. Your name"
+                    onChange={(e) => {
+                      setFeedbackName(e.target.value);
+                      if (feedbackError) setFeedbackError(null);
+                    }}
+                    placeholder={feedbackCategory === 'Report an Issue' ? 'Enter your name' : 'e.g. Your name'}
                     className="w-full bg-[#eef2f7] text-slate-800 placeholder-slate-400 rounded-2xl px-4 py-3 shadow-[inset_3px_3px_6px_#cbd5e1,inset_-3px_-3px_6px_#ffffff] border border-transparent focus:border-indigo-400 focus:outline-none transition-all text-sm disabled:opacity-60"
                   />
                 </div>
+
+                {/* Email Address (Conditional - Mandatory for Report an Issue) */}
+                {feedbackCategory === 'Report an Issue' && (
+                  <div className="animate-fade-in">
+                    <label htmlFor="feedback-email" className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                      Email Address <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="feedback-email"
+                      type="email"
+                      required
+                      disabled={submittingFeedback}
+                      value={feedbackEmail}
+                      onChange={(e) => {
+                        setFeedbackEmail(e.target.value);
+                        if (feedbackError) setFeedbackError(null);
+                      }}
+                      placeholder="Enter your email address"
+                      className="w-full bg-[#eef2f7] text-slate-800 placeholder-slate-400 rounded-2xl px-4 py-3 shadow-[inset_3px_3px_6px_#cbd5e1,inset_-3px_-3px_6px_#ffffff] border border-transparent focus:border-indigo-400 focus:outline-none transition-all text-sm disabled:opacity-60"
+                    />
+                  </div>
+                )}
 
                 {/* Error Banner */}
                 {feedbackError && (
