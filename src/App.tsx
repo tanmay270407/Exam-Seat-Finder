@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { Analytics } from '@vercel/analytics/react';
 import { supabase, isKeyMaskedWithBullets } from './supabase';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
+import { TermsAndConditions } from './pages/TermsAndConditions';
 
 interface ExamRecord {
   id: string | number;
@@ -602,6 +604,33 @@ export default function App() {
   const [searched, setSearched] = useState(false);
   const [isPastExamsExpanded, setIsPastExamsExpanded] = useState(false);
 
+  // Path Routing State for /, /privacy-policy, /terms-and-conditions
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.pathname || '/';
+    }
+    return '/';
+  });
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname || '/');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (path: string) => {
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', path);
+      setCurrentPath(path);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (path === '/') {
+        document.title = 'Exam Seat Finder | University Examination Portal';
+      }
+    }
+  };
+
   // Feedback System State
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState<number>(5);
@@ -1000,36 +1029,60 @@ export default function App() {
       {/* Header */}
       <header className="w-full bg-[#eef2f7] border-b border-slate-200/70 sticky top-0 z-20 print:hidden">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#eef2f7] shadow-[5px_5px_10px_#cbd5e1,-5px_-5px_10px_#ffffff] flex items-center justify-center text-indigo-600 shrink-0">
+          <button
+            type="button"
+            onClick={() => navigateTo('/')}
+            className="flex items-center gap-3 text-left focus:outline-none cursor-pointer group"
+            title="Exam Seat Finder Home"
+          >
+            <div className="w-10 h-10 rounded-2xl bg-[#eef2f7] shadow-[5px_5px_10px_#cbd5e1,-5px_-5px_10px_#ffffff] group-hover:shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff] flex items-center justify-center text-indigo-600 shrink-0 transition-all">
               <GraduationCap className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-slate-800 leading-tight">Exam Seat Finder</h1>
+              <h1 className="text-base font-bold text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors">
+                Exam Seat Finder
+              </h1>
             </div>
-          </div>
+          </button>
 
-          {/* Share Your Feedback Card */}
+          {/* Feedback & Issue Reporting Button */}
           <button
             type="button"
             onClick={handleOpenFeedback}
             className="group flex items-center gap-2 sm:gap-2.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-[#eef2f7] shadow-[4px_4px_8px_#cbd5e1,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#cbd5e1,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_3px_3px_6px_#cbd5e1,inset_-3px_-3px_6px_#ffffff] border border-white/80 transition-all duration-200 text-slate-700 hover:text-indigo-600 cursor-pointer shrink-0"
-            title="Share Your Feedback"
-            aria-label="Share Your Feedback"
+            title="Feedback & Issue Reporting"
+            aria-label="Feedback & Issue Reporting"
           >
             <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-[inset_1px_1px_2px_rgba(255,255,255,0.9)] shrink-0">
               <MessageSquarePlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
             <span className="text-xs sm:text-sm font-semibold tracking-tight whitespace-nowrap">
-              Share Your Feedback
+              Feedback &amp; Issue Reporting
             </span>
           </button>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-8 sm:py-14">
-        {!searched ? (
+      {currentPath === '/privacy-policy' ? (
+        <main className="flex-1 w-full">
+          <PrivacyPolicy
+            onBackToHome={() => navigateTo('/')}
+            onOpenFeedback={handleOpenFeedback}
+            onOpenDisclaimer={() => setIsDisclaimerOpen(true)}
+          />
+        </main>
+      ) : currentPath === '/terms-and-conditions' ? (
+        <main className="flex-1 w-full">
+          <TermsAndConditions
+            onBackToHome={() => navigateTo('/')}
+            onOpenFeedback={handleOpenFeedback}
+            onOpenDisclaimer={() => setIsDisclaimerOpen(true)}
+          />
+        </main>
+      ) : (
+        <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-8 sm:py-14">
+          {!searched ? (
           /* 1. Home / Search Page */
           <div className="space-y-8 animate-fade-in">
             <div className="text-center space-y-2">
@@ -1245,6 +1298,7 @@ export default function App() {
           </div>
         )}
       </main>
+      )}
 
       {/* Footer */}
       <footer className="w-full px-4 pb-6 pt-3 print:hidden">
@@ -1324,7 +1378,7 @@ export default function App() {
           </div>
 
           {/* Subtle Centered Footer */}
-          <div className="mt-3.5 text-center text-xs text-slate-400 font-medium flex items-center justify-center gap-2 flex-wrap select-none">
+          <div className="mt-3.5 text-center text-xs text-slate-400 font-medium flex items-center justify-center gap-2 sm:gap-2.5 flex-wrap select-none">
             <span>© 2026 Exam Seat Finder</span>
             <span className="text-slate-300" aria-hidden="true">•</span>
             <button
@@ -1333,6 +1387,22 @@ export default function App() {
               className="text-slate-500 hover:text-indigo-600 underline underline-offset-4 decoration-slate-300 hover:decoration-indigo-500 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded"
             >
               Disclaimer
+            </button>
+            <span className="text-slate-300" aria-hidden="true">•</span>
+            <button
+              type="button"
+              onClick={() => navigateTo('/privacy-policy')}
+              className="text-slate-500 hover:text-indigo-600 underline underline-offset-4 decoration-slate-300 hover:decoration-indigo-500 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded"
+            >
+              Privacy Policy
+            </button>
+            <span className="text-slate-300" aria-hidden="true">•</span>
+            <button
+              type="button"
+              onClick={() => navigateTo('/terms-and-conditions')}
+              className="text-slate-500 hover:text-indigo-600 underline underline-offset-4 decoration-slate-300 hover:decoration-indigo-500 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded"
+            >
+              Terms &amp; Conditions
             </button>
             <span className="text-slate-300" aria-hidden="true">•</span>
             <a
